@@ -130,7 +130,7 @@ SDL_Rect DemoSE={128,312,67,52};
 SDL_Rect DemonHealth={100,350,85,130};
 SDL_Rect AngelMana  ={460,350,85,130};
 
-SDL_Rect Change_controlsRect ={0,0,40,40};
+SDL_Rect Change_controlsRect ={600,0,40,40};
 
 SDL_Rect JoystickCircleRect  ={0,0,0,0};
 
