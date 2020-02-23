@@ -124,14 +124,14 @@ BOOL StartGame(BOOL bNewGame, BOOL bSinglePlayer)
 extern void finish_simulated_mouse_clicks(int current_mouse_x, int current_mouse_y);
 extern void plrctrls_after_check_curs_move();
 
-static bool ProcessInput()
+static void ProcessInput()
 {
 	if (PauseMode == 2) {
-		return false;
+		return;
 	}
 	if (gbMaxPlayers == 1 && gmenu_exception()) {
 		force_redraw |= 1;
-		return false;
+		return;
 	}
 
 	if (!gmenu_exception() && sgnTimeoutCurs == 0) {
@@ -142,8 +142,6 @@ static bool ProcessInput()
 		plrctrls_after_check_curs_move();
 		track_process();
 	}
-
-	return true;
 }
 
 void run_game_loop(unsigned int uMsg)
@@ -169,23 +167,28 @@ void run_game_loop(unsigned int uMsg)
 	nthread_ignore_mutex(FALSE);
 
 	while (gbRunGame) {
-		while (PeekMessage(&msg)) {
-			if (msg.message == WM_QUIT) {
-				gbRunGameResult = FALSE;
-				gbRunGame = FALSE;
-				break;
+		diablo_color_cyc_logic();
+		if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE)) {
+			SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+			while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+				if (msg.message == WM_QUIT) {
+					gbRunGameResult = FALSE;
+					gbRunGame = FALSE;
+					break;
+				}
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
 			}
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		if (!gbRunGame)
-			break;
-		if (!nthread_has_500ms_passed(FALSE)) {
+			bLoop = gbRunGame && nthread_has_500ms_passed(FALSE);
+			SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+			if (!bLoop) {
+				continue;
+			}
+		} else if (!nthread_has_500ms_passed(FALSE)) {
 			ProcessInput();
 			DrawAndBlit();
 			continue;
 		}
-		diablo_color_cyc_logic();
 		multi_process_network_packets();
 		game_loop(gbGameLoopStartup);
 		gbGameLoopStartup = FALSE;
@@ -566,21 +569,21 @@ LRESULT CALLBACK GM_Game(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_MOUSEMOVE:
-		MouseX = (short)LOWORD(lParam);
-		MouseY = (short)HIWORD(lParam);
+		MouseX = LOWORD(lParam);
+		MouseY = HIWORD(lParam);
 		gmenu_on_mouse_move();
 		return 0;
 	case WM_LBUTTONDOWN:
-		MouseX = (short)LOWORD(lParam);
-		MouseY = (short)HIWORD(lParam);
+		MouseX = LOWORD(lParam);
+		MouseY = HIWORD(lParam);
 		if (sgbMouseDown == 0) {
 			sgbMouseDown = 1;
 			track_repeat_walk(LeftMouseDown(wParam));
 		}
 		return 0;
 	case WM_LBUTTONUP:
-		MouseX = (short)LOWORD(lParam);
-		MouseY = (short)HIWORD(lParam);
+		MouseX = LOWORD(lParam);
+		MouseY = HIWORD(lParam);
 		if (sgbMouseDown == 1) {
 			sgbMouseDown = 0;
 			LeftMouseUp();
@@ -588,16 +591,16 @@ LRESULT CALLBACK GM_Game(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		return 0;
 	case WM_RBUTTONDOWN:
-		MouseX = (short)LOWORD(lParam);
-		MouseY = (short)HIWORD(lParam);
+		MouseX = LOWORD(lParam);
+		MouseY = HIWORD(lParam);
 		if (sgbMouseDown == 0) {
 			sgbMouseDown = 2;
 			RightMouseDown();
 		}
 		return 0;
 	case WM_RBUTTONUP:
-		MouseX = (short)LOWORD(lParam);
-		MouseY = (short)HIWORD(lParam);
+		MouseX = LOWORD(lParam);
+		MouseY = HIWORD(lParam);
 		if (sgbMouseDown == 2) {
 			sgbMouseDown = 0;
 		}
@@ -1689,8 +1692,24 @@ extern void plrctrls_after_game_logic();
 
 void game_logic()
 {
-	if (!ProcessInput()) {
+	if (PauseMode == 2) {
 		return;
+	}
+	if (PauseMode == 1) {
+		PauseMode = 2;
+	}
+	if (gbMaxPlayers == 1 && gmenu_exception()) {
+		force_redraw |= 1;
+		return;
+	}
+
+	if (!gmenu_exception() && sgnTimeoutCurs == 0) {
+#ifndef USE_SDL1
+		finish_simulated_mouse_clicks(MouseX, MouseY);
+#endif
+		CheckCursMove();
+		plrctrls_after_check_curs_move();
+		track_process();
 	}
 	if (gbProcessPlayers) {
 		ProcessPlayers();
@@ -1747,13 +1766,19 @@ void timeout_cursor(BOOL bTimeout)
 
 void diablo_color_cyc_logic()
 {
-	if (!palette_get_colour_cycling())
-		return;
+	DWORD tc;
 
-	if (leveltype == DTYPE_HELL) {
-		lighting_color_cycling();
-	} else if (leveltype == DTYPE_CAVES) {
-		palette_update_caves();
+	tc = GetTickCount();
+	if (tc - color_cycle_timer >= 50) {
+		color_cycle_timer = tc;
+		if (palette_get_colour_cycling()) {
+			if (leveltype == DTYPE_HELL) {
+				lighting_color_cycling();
+			} else if (leveltype == DTYPE_CAVES) {
+				//if (fullscreen)
+					palette_update_caves();
+			}
+		}
 	}
 }
 

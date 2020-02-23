@@ -40,8 +40,7 @@ extern void (*gfnSoundFunction)(char *file);
 
 bool IsInsideRect(const SDL_Event &event, const SDL_Rect &rect);
 void UiFadeIn();
-void UiFocusNavigation(SDL_Event *event);
-void UiHandleEvents(SDL_Event *event);
+bool UiFocusNavigation(SDL_Event *event);
 bool UiItemMouseEvents(SDL_Event *event, UiItem *items, std::size_t size);
 int GetCenterOffset(int w, int bw = 0);
 void LoadPalInMem(const PALETTEENTRY *pPal);

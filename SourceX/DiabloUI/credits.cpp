@@ -258,6 +258,8 @@ BOOL UiCreditsDialog(int a1)
 			case SDL_MOUSEBUTTONDOWN:
 				endMenu = true;
 				break;
+			case SDL_QUIT:
+				exit(0);
 			default:
 				switch (GetMenuAction(event)) {
 				case MenuAction::BACK:
@@ -268,7 +270,6 @@ BOOL UiCreditsDialog(int a1)
 					break;
 				}
 			}
-			UiHandleEvents(&event);
 		}
 	} while (!endMenu && !credits_renderer.Finished());
 	BlackPalette();

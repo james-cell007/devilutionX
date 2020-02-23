@@ -2068,7 +2068,7 @@ void StartNewLvl(int pnum, int fom, int lvl)
 	if (pnum == myplr) {
 		plr[pnum]._pmode = PM_NEWLVL;
 		plr[pnum]._pInvincible = TRUE;
-		PostMessage(fom, 0, 0);
+		PostMessage(ghMainWnd, fom, 0, 0);
 		if (gbMaxPlayers > 1) {
 			NetSendCmdParam2(TRUE, CMD_NEWLVL, fom, lvl);
 		}
@@ -2094,7 +2094,7 @@ void RestartTownLvl(int pnum)
 	if (pnum == myplr) {
 		plr[pnum]._pmode = PM_NEWLVL;
 		plr[pnum]._pInvincible = TRUE;
-		PostMessage(WM_DIABRETOWN, 0, 0);
+		PostMessage(ghMainWnd, WM_DIABRETOWN, 0, 0);
 	}
 }
 
@@ -2114,7 +2114,7 @@ void StartWarpLvl(int pnum, int pidx)
 		SetCurrentPortal(pidx);
 		plr[pnum]._pmode = PM_NEWLVL;
 		plr[pnum]._pInvincible = TRUE;
-		PostMessage(WM_DIABWARPLVL, 0, 0);
+		PostMessage(ghMainWnd, WM_DIABWARPLVL, 0, 0);
 	}
 }
 
@@ -2399,7 +2399,7 @@ BOOL PlrHitMonst(int pnum, int m)
 		hper = 95;
 	}
 
-	if (CheckMonsterHit(m, ret)) {
+	if (CheckMonsterHit(m, &ret)) {
 		return ret;
 	}
 #ifdef _DEBUG

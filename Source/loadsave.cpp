@@ -154,7 +154,7 @@ void LoadGame(BOOL firstflag)
 	numpremium = WLoad();
 	premiumlevel = WLoad();
 
-	for (i = 0; i < SMITH_PREMIUM_ITEMS; i++)
+	for (i = 0; i < 6; i++)
 		LoadPremium(i);
 
 	automapflag = OLoad();
@@ -925,7 +925,7 @@ void SaveGame()
 	WSave(numpremium);
 	WSave(premiumlevel);
 
-	for (i = 0; i < SMITH_PREMIUM_ITEMS; i++)
+	for (i = 0; i < 6; i++)
 		SavePremium(i);
 
 	OSave(automapflag);

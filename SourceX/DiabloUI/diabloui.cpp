@@ -15,7 +15,6 @@
 #include "DiabloUI/fonts.h"
 #include "DiabloUI/button.h"
 #include "DiabloUI/dialogs.h"
-#include "controls/controller.h"
 
 #ifdef __SWITCH__
 // for virtual keyboard on Switch
@@ -107,6 +106,18 @@ void UiInitScrollBar(UiScrollBar *ui_sb, std::size_t viewport_size, const std::s
 	}
 }
 
+void UiPlayMoveSound()
+{
+	if (gfnSoundFunction)
+		gfnSoundFunction("sfx\\items\\titlemov.wav");
+}
+
+void UiPlaySelectSound()
+{
+	if (gfnSoundFunction)
+		gfnSoundFunction("sfx\\items\\titlslct.wav");
+}
+
 void UiFocus(int itemIndex, bool wrap = false)
 {
 	if (!wrap) {
@@ -126,10 +137,9 @@ void UiFocus(int itemIndex, bool wrap = false)
 	if (SelectedItem == itemIndex)
 		return;
 
-	if (gfnSoundFunction)
-		gfnSoundFunction("sfx\\items\\titlemov.wav");
-
 	SelectedItem = itemIndex;
+
+	UiPlayMoveSound();
 
 	if (gfnListFocus)
 		gfnListFocus(itemIndex);
@@ -175,32 +185,35 @@ void selhero_CatToName(char *in_buf, char *out_buf, int cnt)
 	strncat(out_buf, output.c_str(), cnt - strlen(out_buf));
 }
 
-void UiFocusNavigation(SDL_Event *event)
+bool UiFocusNavigation(SDL_Event *event)
 {
+	if (event->type == SDL_QUIT)
+		exit(0);
+
 	switch (GetMenuAction(*event)) {
 	case MenuAction::SELECT:
 		UiFocusNavigationSelect();
-		return;
+		return true;
 	case MenuAction::UP:
 		UiFocus(SelectedItem - 1, UiItemsWraps);
-		return;
+		return true;
 	case MenuAction::DOWN:
 		UiFocus(SelectedItem + 1, UiItemsWraps);
-		return;
+		return true;
 	case MenuAction::PAGE_UP:
 		UiFocusPageUp();
-		return;
+		return true;
 	case MenuAction::PAGE_DOWN:
 		UiFocusPageDown();
-		return;
+		return true;
 	case MenuAction::DELETE:
 		UiFocusNavigationYesNo();
-		return;
+		return true;
 	case MenuAction::BACK:
 		if (!gfnListEsc)
 			break;
 		UiFocusNavigationEsc();
-		return;
+		return true;
 	default:
 		break;
 	}
@@ -241,7 +254,7 @@ void UiFocusNavigation(SDL_Event *event)
 						selhero_CatToName(clipboard, UiTextInput, UiTextInputLen);
 					}
 				}
-				return;
+				return true;
 #endif
 			case SDLK_BACKSPACE:
 			case SDLK_LEFT: {
@@ -249,7 +262,7 @@ void UiFocusNavigation(SDL_Event *event)
 				if (nameLen > 0) {
 					UiTextInput[nameLen - 1] = '\0';
 				}
-				return;
+				return true;
 			}
 			default:
 				break;
@@ -270,7 +283,7 @@ void UiFocusNavigation(SDL_Event *event)
 #ifndef USE_SDL1
 		case SDL_TEXTINPUT:
 			selhero_CatToName(event->text.text, UiTextInput, UiTextInputLen);
-			return;
+			return true;
 #endif
 		default:
 			break;
@@ -283,27 +296,15 @@ void UiFocusNavigation(SDL_Event *event)
 		OutputToLogical(&event->button.x, &event->button.y);
 #endif
 		if (UiItemMouseEvents(event, gUiItems, gUiItemCnt))
-			return;
+			return true;
 	}
-}
 
-void UiHandleEvents(SDL_Event *event)
-{
-	if (event->type == SDL_QUIT)
-		exit(0);
-
-#ifndef USE_SDL1
-	if (event->type == SDL_JOYDEVICEADDED || event->type == SDL_JOYDEVICEREMOVED) {
-		InitController();
-		return;
-	}
-#endif
+	return false;
 }
 
 void UiFocusNavigationSelect()
 {
-	if (gfnSoundFunction)
-		gfnSoundFunction("sfx\\items\\titlslct.wav");
+	UiPlaySelectSound();
 	if (SDL_IsTextInputActive()) {
 		if (strlen(UiTextInput) == 0) {
 			return;
@@ -318,8 +319,7 @@ void UiFocusNavigationSelect()
 
 void UiFocusNavigationEsc()
 {
-	if (gfnSoundFunction)
-		gfnSoundFunction("sfx\\items\\titlslct.wav");
+	UiPlaySelectSound();
 	if (SDL_IsTextInputActive()) {
 		SDL_StopTextInput();
 		UiTextInput = NULL;
@@ -334,8 +334,8 @@ void UiFocusNavigationYesNo()
 	if (gfnListYesNo == NULL)
 		return;
 
-	if (gfnListYesNo() && gfnSoundFunction)
-		gfnSoundFunction("sfx\\items\\titlslct.wav");
+	if (gfnListYesNo())
+		UiPlaySelectSound();
 }
 
 bool IsInsideRect(const SDL_Event &event, const SDL_Rect &rect)
@@ -544,7 +544,6 @@ void UiPollAndRender()
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		UiFocusNavigation(&event);
-		UiHandleEvents(&event);
 	}
 	UiRenderItems(gUiItems, gUiItemCnt);
 	DrawMouse();

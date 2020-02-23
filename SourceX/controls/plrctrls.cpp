@@ -9,6 +9,12 @@
 
 namespace dvl {
 
+typedef struct bfsNode {
+	int x;
+	int y;
+	int steps;
+} bfsNode;
+
 bool sgbControllerActive = false;
 coords speedspellscoords[50];
 const int repeatRate = 100;
@@ -18,6 +24,7 @@ int speedspellcount = 0;
 bool InGameMenu()
 {
 	return stextflag > 0
+	    || questlog
 	    || helpflag
 	    || talkflag
 	    || qtextflag
@@ -80,11 +87,7 @@ int GetDistance(int dx, int dy, int maxDistance)
 	}
 
 	char walkpath[25];
-	int steps = FindPath(PosOkPlayer, myplr, plr[myplr]._px, plr[myplr]._py, dx, dy, walkpath);
-	if (steps > maxDistance)
-		return 0;
-
-	return steps;
+	return FindPath(PosOkPlayer, myplr, plr[myplr]._px, plr[myplr]._py, dx, dy, walkpath);
 }
 
 /**
@@ -94,8 +97,8 @@ int GetDistance(int dx, int dy, int maxDistance)
  */
 int GetDistanceRanged(int dx, int dy)
 {
-	int a = plr[myplr]._px - dx;
-	int b = plr[myplr]._py - dy;
+	int a = abs(plr[myplr]._px - dx);
+	int b = abs(plr[myplr]._py - dy);
 
 	return sqrt(a * a + b * b);
 }
@@ -118,8 +121,6 @@ void FindItemOrObject()
 			int newRotations = GetRotaryDistance(mx + xx, my + yy);
 			if (rotations < newRotations)
 				continue;
-			if (xx != 0 && yy != 0 && GetDistance(mx + xx, my + yy, 1) == 0)
-				continue;
 			rotations = newRotations;
 			pcursitem = i;
 			cursmx = mx + xx;
@@ -132,17 +133,15 @@ void FindItemOrObject()
 
 	for (int xx = -1; xx < 2; xx++) {
 		for (int yy = -1; yy < 2; yy++) {
+			if (xx == 0 && yy == 0)
+				continue; // Ignore doorway so we don't get stuck behind barrels
 			if (dObject[mx + xx][my + yy] == 0)
 				continue;
 			int o = dObject[mx + xx][my + yy] > 0 ? dObject[mx + xx][my + yy] - 1 : -(dObject[mx + xx][my + yy] + 1);
 			if (object[o]._oSelFlag == 0)
 				continue;
-			if (xx == 0 && yy == 0 && object[o]._oDoorFlag)
-				continue; // Ignore doorway so we don't get stuck behind barrels
 			int newRotations = GetRotaryDistance(mx + xx, my + yy);
 			if (rotations < newRotations)
-				continue;
-			if (xx != 0 && yy != 0 && GetDistance(mx + xx, my + yy, 1) == 0)
 				continue;
 			rotations = newRotations;
 			pcursobj = o;
@@ -155,8 +154,7 @@ void FindItemOrObject()
 void CheckTownersNearby()
 {
 	for (int i = 0; i < 16; i++) {
-		int distance = GetDistance(towner[i]._tx, towner[i]._ty, 2);
-		if (distance == 0)
+		if (GetDistance(towner[i]._tx, towner[i]._ty, 2) == 0)
 			continue;
 		pcursmonst = i;
 	}
@@ -194,32 +192,30 @@ bool CanTargetMonster(int mi)
 
 void FindRangedTarget()
 {
-	int distance, rotations;
-	bool canTalk;
+	int newRotations, newDdistance;
+	int distance = 2 * (MAXDUNX + MAXDUNY);
+	int rotations = 5;
 
 	// The first MAX_PLRS monsters are reserved for players' golems.
-	for (int mi = MAX_PLRS; mi < MAXMONSTERS; mi++) {
-		const auto &monst = monster[mi];
+	for (int i = MAX_PLRS; i < MAXMONSTERS; i++) {
+		const auto &monst = monster[i];
 		const int mx = monst._mx;
 		const int my = monst._my;
-		if (!CanTargetMonster(mi))
+		if (!CanTargetMonster(i))
 			continue;
 
-		const bool newCanTalk = CanTalkToMonst(mi);
-		if (pcursmonst != -1 && !canTalk && newCanTalk)
+		newDdistance = GetDistanceRanged(mx, my);
+		if (distance < newDdistance || (pcursmonst != -1 && CanTalkToMonst(i))) {
 			continue;
-		const int newDdistance = GetDistanceRanged(mx, my);
-		const int newRotations = GetRotaryDistance(mx, my);
-		if (pcursmonst != -1 && canTalk == newCanTalk) {
-			if (distance < newDdistance)
-				continue;
-			if (distance == newDdistance && rotations < newRotations)
+		}
+		if (distance == newDdistance) {
+			newRotations = GetRotaryDistance(mx, my);
+			if (rotations < newRotations)
 				continue;
 		}
 		distance = newDdistance;
 		rotations = newRotations;
-		canTalk = newCanTalk;
-		pcursmonst = mi;
+		pcursmonst = i;
 	}
 }
 
@@ -227,24 +223,17 @@ void FindMeleeTarget()
 {
 	bool visited[MAXDUNX][MAXDUNY] = { 0 };
 	int maxSteps = 25; // Max steps for FindPath is 25
-	int rotations;
-	bool canTalk;
+	int rotations = 5;
+	int x = plr[myplr]._px;
+	int y = plr[myplr]._py;
 
-	struct SearchNode {
-		int x, y;
-		int steps;
-	};
-	std::list<SearchNode> queue;
+	std::list<bfsNode> queue;
 
-	{
-		const int start_x = plr[myplr]._px;
-		const int start_y = plr[myplr]._py;
-		visited[start_x][start_y] = true;
-		queue.push_back({ start_x, start_y, 0 });
-	}
+	visited[x][y] = true;
+	queue.push_back({ x, y, 0 });
 
 	while (!queue.empty()) {
-		SearchNode node = queue.front();
+		bfsNode node = queue.front();
 		queue.pop_front();
 
 		for (int i = 0; i < 8; i++) {
@@ -254,7 +243,7 @@ void FindMeleeTarget()
 			if (visited[dx][dy])
 				continue; // already visisted
 
-			if (node.steps > maxSteps) {
+			if (node.steps >= maxSteps) {
 				visited[dx][dy] = true;
 				continue;
 			}
@@ -263,19 +252,14 @@ void FindMeleeTarget()
 				visited[dx][dy] = true;
 
 				if (dMonster[dx][dy] != 0) {
-					const int mi = dMonster[dx][dy] > 0 ? dMonster[dx][dy] - 1 : -(dMonster[dx][dy] + 1);
+					int mi = dMonster[dx][dy] > 0 ? dMonster[dx][dy] - 1 : -(dMonster[dx][dy] + 1);
 					if (CanTargetMonster(mi)) {
-						const bool newCanTalk = CanTalkToMonst(mi);
-						if (pcursmonst != -1 && !canTalk && newCanTalk)
-							continue;
-						const int newRotations = GetRotaryDistance(dx, dy);
-						if (pcursmonst != -1 && canTalk == newCanTalk && rotations < newRotations)
+						int newRotations = GetRotaryDistance(dx, dy);
+						if (rotations < newRotations || (pcursmonst != -1 && CanTalkToMonst(i)))
 							continue;
 						rotations = newRotations;
-						canTalk = newCanTalk;
 						pcursmonst = mi;
-						if (!canTalk)
-							maxSteps = node.steps; // Monsters found, cap search to current steps
+						maxSteps = node.steps; // Monsters found, cap search to current steps
 					}
 				}
 
@@ -306,7 +290,9 @@ void CheckMonstersNearby()
 
 void CheckPlayerNearby()
 {
-	int distance, newDdistance, rotations;
+	int newRotations, newDdistance;
+	int distance = 2 * (MAXDUNX + MAXDUNY);
+	int rotations = 5;
 
 	if (pcursmonst != -1)
 		return;
@@ -325,20 +311,19 @@ void CheckPlayerNearby()
 		    || (plr[i]._pHitPoints == 0 && spl != SPL_RESURRECT))
 			continue;
 
-		if (plr[myplr]._pwtype == WT_RANGED || HasRangedSpell() || spl == SPL_HEALOTHER) {
+		if (plr[myplr]._pwtype == WT_RANGED || HasRangedSpell() || spl == SPL_HEALOTHER)
 			newDdistance = GetDistanceRanged(mx, my);
-		} else {
+		else
 			newDdistance = GetDistance(mx, my, distance);
-			if (newDdistance == 0)
+
+		if (newDdistance == 0 || distance < newDdistance) {
+			continue;
+		}
+		if (distance == newDdistance) {
+			newRotations = GetRotaryDistance(mx, my);
+			if (rotations < newRotations)
 				continue;
 		}
-
-		if (pcursplr != -1 && distance < newDdistance)
-			continue;
-		const int newRotations = GetRotaryDistance(mx, my);
-		if (pcursplr != -1 && distance == newDdistance && rotations < newRotations)
-			continue;
-
 		distance = newDdistance;
 		rotations = newRotations;
 		pcursplr = i;
@@ -356,74 +341,6 @@ void FindActor()
 		CheckPlayerNearby();
 }
 
-int pcursmissile;
-int pcurstrig;
-int pcursquest;
-
-void FindTrigger()
-{
-	int distance, rotations;
-
-	if (pcursitem != -1 || pcursobj != -1)
-		return; // Prefer showing items/objects over triggers (use of cursm* conflicts)
-
-	for (int i = 0; i < nummissiles; i++) {
-		int mi = missileactive[i];
-		if (missile[mi]._mitype == MIS_TOWN || missile[mi]._mitype == MIS_RPORTAL) {
-			int mix = missile[mi]._mix;
-			int miy = missile[mi]._miy;
-			const int newDdistance = GetDistance(mix, miy, 2);
-			if (newDdistance == 0)
-				continue;
-			if (pcursmissile != -1 && distance < newDdistance)
-				continue;
-			const int newRotations = GetRotaryDistance(mix, miy);
-			if (pcursmissile != -1 && distance == newDdistance && rotations < newRotations)
-				continue;
-			cursmx = mix;
-			cursmy = miy;
-			pcursmissile = mi;
-			distance = newDdistance;
-			rotations = newRotations;
-		}
-	}
-
-	if (pcursmissile == -1) {
-		for (int i = 0; i < numtrigs; i++) {
-			int tx = trigs[i]._tx;
-			int ty = trigs[i]._ty;
-			if (trigs[i]._tlvl == 13)
-				ty -= 1;
-			const int newDdistance = GetDistance(tx, ty, 2);
-			if (newDdistance == 0)
-				continue;
-			cursmx = tx;
-			cursmy = ty;
-			pcurstrig = i;
-		}
-
-		if (pcurstrig == -1) {
-			for (int i = 0; i < MAXQUESTS; i++) {
-				if (i == QTYPE_VB || currlevel != quests[i]._qlevel || quests[i]._qslvl == 0)
-					continue;
-				const int newDdistance = GetDistance(quests[i]._qtx, quests[i]._qty, 2);
-				if (newDdistance == 0)
-					continue;
-				cursmx = quests[i]._qtx;
-				cursmy = quests[i]._qty;
-				pcursquest = i;
-			}
-		}
-	}
-
-	if (pcursmonst != -1 || pcursplr != -1 || cursmx == -1 || cursmy == -1)
-		return; // Prefer monster/player info text
-
-	CheckTrigForce();
-	CheckTown();
-	CheckRportal();
-}
-
 void Interact()
 {
 	if (leveltype == DTYPE_TOWN && pcursmonst != -1) {
@@ -434,7 +351,7 @@ void Interact()
 		} else {
 			NetSendCmdParam1(true, CMD_RATTACKID, pcursmonst);
 		}
-	} else if (leveltype != DTYPE_TOWN && pcursplr != -1 && !FriendlyMode) {
+	} else if (pcursplr != -1 && !FriendlyMode) {
 		NetSendCmdParam1(true, plr[myplr]._pwtype == WT_RANGED ? CMD_RATTACKPID : CMD_ATTACKPID, pcursplr);
 	}
 }
@@ -718,111 +635,36 @@ void HotSpellMove(MoveDirection dir)
 	}
 }
 
-void SpellBookMove(MoveDirection dir)
-{
-	DWORD ticks = GetTickCount();
-	if (ticks - invmove < repeatRate) {
-		return;
-	}
-	invmove = ticks;
-
-	if (dir.x == MoveDirectionX::LEFT) {
-		if (sbooktab > 0)
-			sbooktab--;
-	} else if (dir.x == MoveDirectionX::RIGHT) {
-		if (sbooktab < 3)
-			sbooktab++;
-	}
-}
-
+static const _walk_path kMoveToWalkDir[3][3] = {
+	// NONE      UP      DOWN
+	{ WALK_NONE, WALK_N, WALK_S }, // NONE
+	{ WALK_W, WALK_NW, WALK_SW },  // LEFT
+	{ WALK_E, WALK_NE, WALK_SE },  // RIGHT
+};
 static const direction kFaceDir[3][3] = {
 	// NONE      UP      DOWN
 	{ DIR_OMNI, DIR_N, DIR_S }, // NONE
 	{ DIR_W, DIR_NW, DIR_SW },  // LEFT
 	{ DIR_E, DIR_NE, DIR_SE },  // RIGHT
 };
-static const int kOffsets[8][2] = {
-	{ 1, 1 },   // DIR_S
-	{ 0, 1 },   // DIR_SW
-	{ -1, 1 },  // DIR_W
-	{ -1, 0 },  // DIR_NW
-	{ -1, -1 }, // DIR_N
-	{ 0, -1 },  // DIR_NE
-	{ 1, -1 },  // DIR_E
-	{ 1, 0 },   // DIR_SE
-};
-
-/**
- * @brief check if stepping in direction (dir) from x, y is blocked.
- *
- * If you step from A to B, at leat one of the Xs need to be clear:
- *
- *  AX
- *  XB
- *
- *  @return true if step is blocked
- */
-bool IsPathBlocked(int x, int y, int dir)
-{
-	int d1, d2, d1x, d1y, d2x, d2y;
-
-	switch (dir) {
-	case DIR_N:
-		d1 = DIR_NW;
-		d2 = DIR_NE;
-		break;
-	case DIR_E:
-		d1 = DIR_NE;
-		d2 = DIR_SE;
-		break;
-	case DIR_S:
-		d1 = DIR_SE;
-		d2 = DIR_SW;
-		break;
-	case DIR_W:
-		d1 = DIR_SW;
-		d2 = DIR_NW;
-		break;
-	default:
-		return false;
-	}
-
-	d1x = x + kOffsets[d1][0];
-	d1y = y + kOffsets[d1][1];
-	d2x = x + kOffsets[d2][0];
-	d2y = y + kOffsets[d2][1];
-
-	if (!nSolidTable[dPiece[d1x][d1y]] && !nSolidTable[dPiece[d2x][d2y]])
-		return false;
-
-	return !PosOkPlayer(myplr, d1x, d1y) && !PosOkPlayer(myplr, d2x, d2y);
-}
 
 void WalkInDir(MoveDirection dir)
 {
-	const int x = plr[myplr]._px;
-	const int y = plr[myplr]._py;
-
 	if (dir.x == MoveDirectionX::NONE && dir.y == MoveDirectionY::NONE) {
-		if (sgbControllerActive && plr[myplr].walkpath[0] != WALK_NONE && plr[myplr].destAction == ACTION_NONE)
-			NetSendCmdLoc(true, CMD_WALKXY, x, y); // Stop walking
+		if (sgbControllerActive && plr[myplr].destAction == ACTION_NONE)
+			ClrPlrPath(myplr);
 		return;
 	}
 
-	const int pdir = kFaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
-	const int dx = x + kOffsets[pdir][0];
-	const int dy = y + kOffsets[pdir][1];
-	plr[myplr]._pdir = pdir;
-
-	if (PosOkPlayer(myplr, dx, dy) && IsPathBlocked(x, y, pdir))
-		return; // Don't start backtrack around obstacles
-
-	NetSendCmdLoc(true, CMD_WALKXY, dx, dy);
+	ClrPlrPath(myplr);
+	plr[myplr].walkpath[0] = kMoveToWalkDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
+	plr[myplr].destAction = ACTION_NONE; // stop attacking, etc.
+	plr[myplr]._pdir = kFaceDir[static_cast<std::size_t>(dir.x)][static_cast<std::size_t>(dir.y)];
 }
 
 void Movement()
 {
-	if (InGameMenu() || questlog)
+	if (InGameMenu())
 		return;
 
 	MoveDirection move_dir = GetMoveDirection();
@@ -836,73 +678,67 @@ void Movement()
 		AttrIncBtnSnap(move_dir.y);
 	} else if (spselflag) {
 		HotSpellMove(move_dir);
-	} else if (sbookflag) {
-		SpellBookMove(move_dir);
 	} else {
 		WalkInDir(move_dir);
 	}
 }
 
 struct RightStickAccumulator {
-	void pool(int *x, int *y, int slowdown)
+	void start(int *x, int *y)
 	{
-		DWORD tc = SDL_GetTicks();
-		hiresDX += rightStickX * (tc - lastTc);
-		hiresDY += rightStickY * (tc - lastTc);
+		hiresDX += rightStickX * kGranularity;
+		hiresDY += rightStickY * kGranularity;
 		*x += hiresDX / slowdown;
 		*y += -hiresDY / slowdown;
-		lastTc = tc;
+	}
+
+	void finish()
+	{
 		// keep track of remainder for sub-pixel motion
 		hiresDX %= slowdown;
 		hiresDY %= slowdown;
 	}
 
-	void clear()
-	{
-		lastTc = SDL_GetTicks();
-	}
-
-	DWORD lastTc = SDL_GetTicks();
-	int hiresDX = 0;
-	int hiresDY = 0;
+	static const int kGranularity = (1 << 15) - 1;
+	int slowdown; // < kGranularity
+	int hiresDX;
+	int hiresDY;
 };
 
 } // namespace
 
 void HandleRightStickMotion()
 {
-	static RightStickAccumulator acc;
 	// deadzone is handled in ScaleJoystickAxes() already
-	if (rightStickX == 0 && rightStickY == 0) {
-		acc.clear();
+	if (rightStickX == 0 && rightStickY == 0)
 		return;
-	}
 
 	if (automapflag) { // move map
+		static RightStickAccumulator acc = { /*slowdown=*/(1 << 14) + (1 << 13), 0, 0 };
 		int dx = 0, dy = 0;
-		acc.pool(&dx, &dy, 32);
-		AutoMapXOfs += dy + dx;
-		AutoMapYOfs += dy - dx;
-		return;
-	}
-
-	{ // move cursor
+		acc.start(&dx, &dy);
+		if (dy > 1)
+			AutomapUp();
+		else if (dy < -1)
+			AutomapDown();
+		else if (dx < -1)
+			AutomapRight();
+		else if (dx > 1)
+			AutomapLeft();
+		acc.finish();
+	} else { // move cursor
 		sgbControllerActive = false;
+		static RightStickAccumulator acc = { /*slowdown=*/(1 << 13) + (1 << 12), 0, 0 };
 		int x = MouseX;
 		int y = MouseY;
-		acc.pool(&x, &y, 2);
-		x = std::min(std::max(x, 0), SCREEN_WIDTH - 1);
-		y = std::min(std::max(y, 0), SCREEN_HEIGHT - 1);
+		acc.start(&x, &y);
+		if (x < 0)
+			x = 0;
+		if (y < 0)
+			y = 0;
 		SetCursorPos(x, y);
+		acc.finish();
 	}
-}
-
-/**
- * @brief Moves the mouse to the first inventory slot.
- */
-void FocusOnInventory()
-{
-	SetCursorPos(InvRect[25].X + (INV_SLOT_SIZE_PX / 2), InvRect[25].Y - (INV_SLOT_SIZE_PX / 2));
 }
 
 void plrctrls_after_check_curs_move()
@@ -916,17 +752,11 @@ void plrctrls_after_check_curs_move()
 		pcursmonst = -1;
 		pcursitem = -1;
 		pcursobj = -1;
-		pcursmissile = -1;
-		pcurstrig = -1;
-		pcursquest = -1;
-		cursmx = -1;
-		cursmy = -1;
 		if (!invflag) {
 			*infostr = '\0';
 			ClearPanel();
 			FindActor();
 			FindItemOrObject();
-			FindTrigger();
 		}
 	}
 }
@@ -955,12 +785,14 @@ void UseBeltItem(int type)
 void PerformPrimaryAction()
 {
 	if (invflag) { // inventory is open
-		if (pcurs > CURSOR_HAND && pcurs < CURSOR_FIRSTITEM) {
-			TryIconCurs();
-			SetCursor_(CURSOR_HAND);
-		} else {
+		if (pcurs == CURSOR_IDENTIFY)
+			CheckIdentify(myplr, pcursinvitem);
+		else if (pcurs == CURSOR_REPAIR)
+			DoRepair(myplr, pcursinvitem);
+		else if (pcurs == CURSOR_RECHARGE)
+			DoRecharge(myplr, pcursinvitem);
+		else
 			CheckInvItem();
-		}
 		return;
 	}
 
@@ -1009,57 +841,42 @@ void UpdateSpellTarget()
 	pcursplr = -1;
 	pcursmonst = -1;
 
+	static const int kOffsets[8][2] = {
+		{ 1, 1 },   // DIR_S
+		{ 0, 1 },   // DIR_SW
+		{ -1, 1 },  // DIR_W
+		{ -1, 0 },  // DIR_NW
+		{ -1, -1 }, // DIR_N
+		{ 0, -1 },  // DIR_NE
+		{ 1, -1 },  // DIR_E
+		{ 1, 0 },   // DIR_SE
+	};
 	const auto &player = plr[myplr];
-
-	int range = 1;
-	if (plr[myplr]._pRSpell == SPL_TELEPORT)
-		range = 4;
-
-	cursmx = player._px + kOffsets[player._pdir][0] * range;
-	cursmy = player._py + kOffsets[player._pdir][1] * range;
-}
-
-/**
- * @brief Try dropping item in all 9 possible places
- */
-bool TryDropItem()
-{
-	cursmx = plr[myplr].WorldX + 1;
-	cursmy = plr[myplr].WorldY;
-	if (!DropItemBeforeTrig()) {
-		// Try to drop on the other side
-		cursmx = plr[myplr].WorldX;
-		cursmy = plr[myplr].WorldY + 1;
-		DropItemBeforeTrig();
-	}
-
-	return pcurs == CURSOR_HAND;
+	cursmx = player._px + kOffsets[player._pdir][0];
+	cursmy = player._py + kOffsets[player._pdir][1];
 }
 
 void PerformSpellAction()
 {
-	if (InGameMenu() || questlog || sbookflag)
-		return;
-
 	if (invflag) {
-		if (pcurs >= CURSOR_FIRSTITEM)
-			TryDropItem();
-		else if (pcurs > CURSOR_HAND) {
-			TryIconCurs();
-			SetCursor_(CURSOR_HAND);
+		int spl = plr[myplr]._pRSpell;
+		if (pcurs >= CURSOR_FIRSTITEM) {
+			DropItemBeforeTrig();
+			return;
 		}
-		return;
+		if (spl != SPL_IDENTIFY && spl != SPL_REPAIR && spl != SPL_RECHARGE)
+			return;
 	}
-
-	if (pcurs >= CURSOR_FIRSTITEM && !TryDropItem())
-		return;
-	if (pcurs > CURSOR_HAND)
-		SetCursor_(CURSOR_HAND);
 
 	if (spselflag) {
 		SetSpell();
 		return;
 	}
+
+	if (InGameMenu())
+		return;
+	if (TryIconCurs())
+		return;
 
 	int spl = plr[myplr]._pRSpell;
 	if ((pcursplr == -1 && (spl == SPL_RESURRECT || spl == SPL_HEALOTHER))
@@ -1080,50 +897,18 @@ void PerformSpellAction()
 	CheckPlrSpell();
 }
 
-void CtrlUseInvItem()
-{
-	ItemStruct *Item;
-
-	if (pcursinvitem == -1)
-		return;
-
-	if (pcursinvitem <= INVITEM_INV_LAST)
-		Item = &plr[myplr].InvList[pcursinvitem - INVITEM_INV_FIRST];
-	else
-		Item = &plr[myplr].SpdList[pcursinvitem - INVITEM_BELT_FIRST];
-
-	if ((Item->_iMiscId == IMISC_SCROLLT || Item->_iMiscId == IMISC_SCROLL) && spelldata[Item->_iSpell].sTargeted) {
-		return;
-	}
-
-	UseInvItem(myplr, pcursinvitem);
-}
-
 void PerformSecondaryAction()
 {
 	if (invflag) {
-		CtrlUseInvItem();
+		if (pcursinvitem != -1)
+			UseInvItem(myplr, pcursinvitem);
 		return;
 	}
 
-	if (pcurs >= CURSOR_FIRSTITEM && !TryDropItem())
-		return;
-	if (pcurs > CURSOR_HAND)
-		SetCursor_(CURSOR_HAND);
-
-	if (pcursitem != -1) {
+	if (pcursitem != -1 && pcurs == CURSOR_HAND) {
 		NetSendCmdLocParam1(true, CMD_GOTOAGETITEM, cursmx, cursmy, pcursitem);
 	} else if (pcursobj != -1) {
 		NetSendCmdLocParam1(true, CMD_OPOBJXY, cursmx, cursmy, pcursobj);
-	} else if (pcursmissile != -1) {
-		MakePlrPath(myplr, missile[pcursmissile]._mix, missile[pcursmissile]._miy, true);
-		plr[myplr].destAction = ACTION_WALK;
-	} else if (pcurstrig != -1) {
-		MakePlrPath(myplr, trigs[pcurstrig]._tx, trigs[pcurstrig]._ty, true);
-		plr[myplr].destAction = ACTION_WALK;
-	} else if (pcursquest != -1) {
-		MakePlrPath(myplr, quests[pcursquest]._qtx, quests[pcursquest]._qty, true);
-		plr[myplr].destAction = ACTION_WALK;
 	}
 }
 

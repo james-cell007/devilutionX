@@ -28,11 +28,13 @@ static std::string getIniPath()
 	return result;
 }
 
-static radon::File ini(getIniPath());
 static Mix_Chunk *SFileChunk;
 
 void GetBasePath(char *buffer, size_t size)
 {
+#ifdef __ANDROID__
+	snprintf(buffer, size, "%s", "/sdcard/devilutionx/");  // Added directory for Android to be devilutionx. 
+#else
 	char *path = SDL_GetBasePath();
 	if (path == NULL) {
 		SDL_Log(SDL_GetError());
@@ -42,6 +44,7 @@ void GetBasePath(char *buffer, size_t size)
 
 	snprintf(buffer, size, "%s", path);
 	SDL_free(path);
+#endif
 }
 
 void GetPrefPath(char *buffer, size_t size)
@@ -67,12 +70,13 @@ void TranslateFileName(char *dst, int dstLen, const char *src)
 	}
 }
 
-BOOL SFileDdaBeginEx(HANDLE hFile, DWORD flags, DWORD mask, unsigned __int32 lDistanceToMove,
-    signed __int32 volume, signed int pan, int a7)
+BOOL SFileDdaBeginEx(HANDLE hFile, DWORD flags, DWORD mask, unsigned __int32 lDistanceToMove, signed __int32 volume, signed int pan, int a7)
 {
 	DWORD bytestoread = SFileGetFileSize(hFile, 0);
 	char *SFXbuffer = (char *)malloc(bytestoread);
 	SFileReadFile(hFile, SFXbuffer, bytestoread, NULL, NULL);
+
+	SDL_Log("This is Landed on ");
 
 	SDL_RWops *rw = SDL_RWFromConstMem(SFXbuffer, bytestoread);
 	if (rw == NULL) {
@@ -322,6 +326,8 @@ bool getIniBool(const char *sectionName, const char *keyName, bool defaultValue)
 
 bool getIniValue(const char *sectionName, const char *keyName, char *string, int stringSize, int *dataSize)
 {
+	radon::File ini(getIniPath());
+
 	radon::Section *section = ini.getSection(sectionName);
 	if (!section)
 		return false;
@@ -342,6 +348,8 @@ bool getIniValue(const char *sectionName, const char *keyName, char *string, int
 
 void setIniValue(const char *sectionName, const char *keyName, char *value, int len)
 {
+	radon::File ini(getIniPath());
+
 	radon::Section *section = ini.getSection(sectionName);
 	if (!section) {
 		ini.addSection(sectionName);

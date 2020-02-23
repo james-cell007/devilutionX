@@ -260,17 +260,8 @@ int CurrentJoystickIndex()
 
 void InitJoystick()
 {
-#if HAS_KBCTRL == 1
-	sgbControllerActive = true;
-#endif
-
-	if (SDL_NumJoysticks() == 0) {
-		current_joystick_index = -1;
-#if HAS_KBCTRL == 0
-		sgbControllerActive = false;
-#endif
+	if (SDL_NumJoysticks() == 0)
 		return;
-	}
 
 	// Get the first available controller.
 	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
@@ -285,7 +276,6 @@ void InitJoystick()
 			continue;
 		}
 		current_joystick_index = i;
-		sgbControllerActive = true;
 		break;
 	}
 }

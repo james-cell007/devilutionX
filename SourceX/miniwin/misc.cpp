@@ -128,8 +128,9 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 
 #ifdef USE_SDL1
 	SDL_EnableUNICODE(1);
-	InitController();
 #endif
+
+	InitController();
 
 	int upscale = 1;
 	DvlIntSetting("upscale", &upscale);
@@ -147,7 +148,7 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 	SDL_SetVideoMode(nWidth, nHeight, SDL1_VIDEO_MODE_BPP, flags);
 #else // RETROFW
 	// JZ4760 IPU scaler (e.g. on RG-300 v2/3) - automatic high-quality scaling.
-	if (access("/proc/jz/ipu", F_OK) == 0 || access("/proc/jz/ipu_ratio", F_OK) == 0) {
+	if (access("/proc/jz/ipu_ratio", F_OK) == 0) {
 		SDL_SetVideoMode(nWidth, nHeight, SDL1_VIDEO_MODE_BPP, flags);
 	} else {
 		// Other RetroFW devices have 320x480 screens with non-square pixels.
@@ -176,13 +177,18 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 	}
 
 	window = SDL_CreateWindow(lpWindowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, nWidth, nHeight, flags);
+
+
+
+
+
 #endif
 	if (window == NULL) {
 		ErrSdl();
 	}
 
 #ifdef USE_SDL1
-	refreshDelay = 1000000 / 60; // 60hz
+	refreshDelay = 16; // rougly 60hz
 #endif
 
 	if (upscale) {
@@ -207,7 +213,7 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 #ifndef USE_SDL1
 		SDL_DisplayMode mode;
 		SDL_GetDisplayMode(0, 0, &mode);
-		refreshDelay = 1000000 / mode.refresh_rate;
+		refreshDelay = 1000 / mode.refresh_rate;
 #endif
 	}
 

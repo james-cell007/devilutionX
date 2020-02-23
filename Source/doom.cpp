@@ -39,7 +39,7 @@ int doom_get_frame_from_time()
 
 void doom_alloc_cel()
 {
-	pDoomCel = DiabloAllocPtr(0x38000);
+	pDoomCel = DiabloAllocPtr(229376);
 }
 
 void doom_cleanup()

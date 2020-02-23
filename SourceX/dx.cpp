@@ -49,6 +49,10 @@ static void dx_create_back_buffer()
 
 static void dx_create_primary_surface()
 {
+#ifdef __ANDROID__
+LoadAndroidImages();
+#endif 
+
 #ifndef USE_SDL1
 	if (renderer) {
 		int width, height;
@@ -205,21 +209,6 @@ void BltFast(DWORD dwX, DWORD dwY, LPRECT lpSrcRect)
 	bufferUpdated = true;
 }
 
-/**
- * @brief Limit FPS to avoid high CPU load, use when v-sync isn't available
- */
-void LimitFrameRate()
-{
-	static uint32_t frameDeadline;
-	uint32_t tc = SDL_GetTicks() * 1000;
-	uint32_t v = 0;
-	if (frameDeadline > tc) {
-		v = tc % refreshDelay;
-		SDL_Delay(v / 1000 + 1); // ceil
-	}
-	frameDeadline = tc + v + refreshDelay;
-}
-
 void RenderPresent()
 {
 	SDL_Surface *surface = GetOutputSurface();
@@ -229,7 +218,12 @@ void RenderPresent()
 		return;
 	}
 
-#ifndef USE_SDL1
+#ifdef USE_SDL1
+	if (SDL_Flip(surface) <= -1) {
+		ErrSdl();
+	}
+	SDL_Delay(SDL_GetTicks() % refreshDelay);
+#else
 	if (renderer) {
 		if (SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch) <= -1) { //pitch is 2560
 			ErrSdl();
@@ -247,18 +241,17 @@ void RenderPresent()
 		if (SDL_RenderCopy(renderer, texture, NULL, NULL) <= -1) {
 			ErrSdl();
 		}
+		#ifdef ANDROID
+		DrawAndroidUI();
+		#endif
 		SDL_RenderPresent(renderer);
 	} else {
 		if (SDL_UpdateWindowSurface(window) <= -1) {
 			ErrSdl();
 		}
-		LimitFrameRate();
+		// Limit FPS to lower CPU when not waiting for V-Blank
+		SDL_Delay(SDL_GetTicks() % refreshDelay);
 	}
-#else
-	if (SDL_Flip(surface) <= -1) {
-		ErrSdl();
-	}
-	LimitFrameRate();
 #endif
 
 	bufferUpdated = false;

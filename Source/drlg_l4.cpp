@@ -386,16 +386,15 @@ void DRLG_L4SetSPRoom(int rx1, int ry1)
 
 static void L4makeDmt()
 {
-	int i, j, idx, val, dmtx, dmty;
+	int i, j, val, dmtx, dmty;
 
 	for (j = 0, dmty = 1; dmty <= 77; j++, dmty += 2) {
 		for (i = 0, dmtx = 1; dmtx <= 77; i++, dmtx += 2) {
-			val = 8 * L4dungeon[dmtx + 1][dmty + 1]
-			    + 4 * L4dungeon[dmtx][dmty + 1]
-			    + 2 * L4dungeon[dmtx + 1][dmty]
-			    + L4dungeon[dmtx][dmty];
-			idx = L4ConvTbl[val];
-			dungeon[i][j] = idx;
+			val = L4dungeon[dmtx + 1][dmty + 1];
+			val = 2 * val + L4dungeon[dmtx][dmty + 1];
+			val = 2 * val + L4dungeon[dmtx + 1][dmty];
+			val = 2 * val + L4dungeon[dmtx][dmty];
+			dungeon[i][j] = L4ConvTbl[val];
 		}
 	}
 }
@@ -1319,7 +1318,7 @@ static void L4roomGen(int x, int y, int w, int h, int dir)
 
 static void L4firstRoom()
 {
-	int x, y, w, h, rndx, rndy, xmin, xmax, ymin, ymax, tx, ty;
+	int x, y, w, h, rndx, rndy, xmin, xmax, ymin, ymax;
 
 	if (currlevel != 16) {
 		if (currlevel == quests[QTYPE_WARLRD]._qlevel && quests[QTYPE_WARLRD]._qactive) {
@@ -1342,8 +1341,7 @@ static void L4firstRoom()
 	xmax = 19 - w;
 	rndx = random_(0, xmax - xmin + 1) + xmin;
 	if (rndx + w > 19) {
-		tx = w + rndx - 19;
-		x = rndx - tx + 1;
+		x = 19 - w + 1;
 	} else {
 		x = rndx;
 	}
@@ -1351,8 +1349,7 @@ static void L4firstRoom()
 	ymax = 19 - h;
 	rndy = random_(0, ymax - ymin + 1) + ymin;
 	if (rndy + h > 19) {
-		ty = h + rndy - 19;
-		y = rndy - ty + 1;
+		y = 19 - h + 1;
 	} else {
 		y = rndy;
 	}
@@ -1381,16 +1378,17 @@ void L4SaveQuads()
 {
 	int i, j, x, y;
 
-	x = l4holdx;
-	y = l4holdy;
-
+	y = 0;
 	for (j = 0; j < 14; j++) {
+		x = 0;
 		for (i = 0; i < 14; i++) {
-			dflags[i + x][j + y] = 1;
-			dflags[DMAXX - 1 - i - x][j + y] = 1;
-			dflags[i + x][DMAXY - 1 - j - y] = 1;
-			dflags[DMAXX - 1 - i - x][DMAXY - 1 - j - y] = 1;
+			dflags[i + l4holdx][j + l4holdy] = 1;
+			dflags[DMAXX - 1 - x - l4holdx][j + l4holdy] = 1;
+			dflags[i + l4holdx][DMAXY - 1 - y - l4holdy] = 1;
+			dflags[DMAXX - 1 - x - l4holdx][DMAXY - 1 - y - l4holdy] = 1;
+			x++;
 		}
+		y++;
 	}
 }
 

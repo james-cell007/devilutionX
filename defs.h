@@ -50,10 +50,6 @@
 
 // todo: enums
 #define NUMLEVELS				17
-#define SMITH_ITEMS				20
-#define SMITH_PREMIUM_ITEMS		6
-#define SMITH_MAX_VALUE			140000
-#define SMITH_MAX_PREMIUM_VALUE 140000
 
 // from diablo 2 beta
 #define MAXEXP					2000000000
@@ -95,8 +91,8 @@
 #define PAL16_RED		224
 #define PAL16_GRAY		240
 
-#define SCREEN_WIDTH	640
-#define SCREEN_HEIGHT	480
+#define SCREEN_WIDTH	640 // 1280 x 720 
+#define SCREEN_HEIGHT	480 // 
 
 #define ZOOM_WIDTH		384
 #define ZOOM_HEIGHT		224

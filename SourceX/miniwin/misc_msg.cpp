@@ -10,7 +10,6 @@
 #include "controls/plrctrls.h"
 #include "controls/touch.h"
 #include "miniwin/ddraw.h"
-#include "controls/controller.h"
 
 #ifdef __SWITCH__
 #include "platform/switch/docking.h"
@@ -244,11 +243,6 @@ static int translate_sdl_key(SDL_Keysym key)
 
 namespace {
 
-LPARAM position_for_mouse(short x, short y)
-{
-	return (((uint16_t)(y & 0xFFFF)) << 16) | (uint16_t)(x & 0xFFFF);
-}
-
 WPARAM keystate_for_mouse(WPARAM ret)
 {
 	ret |= (SDL_GetModState() & KMOD_SHIFT) ? DVL_MK_SHIFT : 0;
@@ -260,6 +254,12 @@ WINBOOL false_avail(const char *name, int value)
 {
 	DUMMY_PRINT("Unhandled SDL event: %s %d", name, value);
 	return true;
+}
+
+// Moves the mouse to the first inventory slot.
+void FocusOnInventory()
+{
+	SetCursorPos(InvRect[25].X + (INV_SLOT_SIZE_PX / 2), InvRect[25].Y - (INV_SLOT_SIZE_PX / 2));
 }
 
 void StoreSpellCoords()
@@ -313,40 +313,39 @@ void StoreSpellCoords()
 } // namespace
 
 /**
- * @brief Try to clean the inventory related cursor states.
- * @return True if it is safe to close the inventory
+ * @brief Clean the inventory related cursor states.
  */
-bool BlurInventory()
+void BlurInventory()
 {
-	if (pcurs >= CURSOR_FIRSTITEM) {
-		if (!TryDropItem()) {
-			if (plr[myplr]._pClass == PC_WARRIOR) {
-				PlaySFX(PS_WARR16); // "Where would I put this?"
-#ifndef SPAWN
-			} else if (plr[myplr]._pClass == PC_ROGUE) {
-				PlaySFX(PS_ROGUE16);
-			} else if (plr[myplr]._pClass == PC_SORCERER) {
-				PlaySFX(PS_MAGE16);
-#endif
-			}
-			return false;
-		}
-	}
-
-	invflag = false;
-	if (pcurs > CURSOR_HAND)
+	if (pcurs >= CURSOR_FIRSTITEM) // drop item to allow us to pick up other items
+		DropItemBeforeTrig();
+	if (pcurs == CURSOR_REPAIR || pcurs == CURSOR_RECHARGE)
 		SetCursor_(CURSOR_HAND);
 	if (chrflag)
 		FocusOnCharInfo();
-
-	return true;
 }
 
-WINBOOL PeekMessageA(LPMSG lpMsg)
+WINBOOL PeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg)
 {
 #ifdef __SWITCH__
 	HandleDocking();
 #endif
+
+	if (wMsgFilterMin != 0)
+		UNIMPLEMENTED();
+	if (wMsgFilterMax != 0)
+		UNIMPLEMENTED();
+	if (hWnd != NULL)
+		UNIMPLEMENTED();
+
+	if (wRemoveMsg == DVL_PM_NOREMOVE) {
+		// This does not actually fill out lpMsg, but this is ok
+		// since the engine never uses it in this case
+		return !message_queue.empty() || SDL_PollEvent(NULL);
+	}
+	if (wRemoveMsg != DVL_PM_REMOVE) {
+		UNIMPLEMENTED();
+	}
 
 	if (!message_queue.empty()) {
 		*lpMsg = message_queue.front();
@@ -359,6 +358,7 @@ WINBOOL PeekMessageA(LPMSG lpMsg)
 		return false;
 	}
 
+	lpMsg->hwnd = hWnd;
 	lpMsg->message = 0;
 	lpMsg->lParam = 0;
 	lpMsg->wParam = 0;
@@ -422,53 +422,31 @@ WINBOOL PeekMessageA(LPMSG lpMsg)
 			PerformSpellAction();
 			break;
 		case GameActionType::TOGGLE_QUICK_SPELL_MENU:
-			if (!invflag || BlurInventory()) {
-				if (!spselflag)
-					DoSpeedBook();
-				else
-					spselflag = false;
-				chrflag = false;
-				questlog = false;
-				sbookflag = false;
-				StoreSpellCoords();
-			}
+			lpMsg->message = DVL_WM_KEYDOWN;
+			lpMsg->wParam = 'S';
+			chrflag = false;
+			questlog = false;
+			invflag = false;
+			BlurInventory();
+			sbookflag = false;
+			StoreSpellCoords();
 			break;
 		case GameActionType::TOGGLE_CHARACTER_INFO:
 			chrflag = !chrflag;
 			if (chrflag) {
 				questlog = false;
 				spselflag = false;
-				if (pcurs == CURSOR_DISARM)
-					SetCursor_(CURSOR_HAND);
 				FocusOnCharInfo();
 			}
 			break;
-		case GameActionType::TOGGLE_QUEST_LOG:
-			if (!questlog) {
-				StartQuestlog();
-				chrflag = false;
-				spselflag = false;
-			} else {
-				questlog = false;
-			}
-			break;
 		case GameActionType::TOGGLE_INVENTORY:
+			invflag = !invflag;
 			if (invflag) {
-				BlurInventory();
-			} else {
 				sbookflag = false;
 				spselflag = false;
-				invflag = true;
-				if (pcurs == CURSOR_DISARM)
-					SetCursor_(CURSOR_HAND);
 				FocusOnInventory();
-			}
-			break;
-		case GameActionType::TOGGLE_SPELL_BOOK:
-			if (BlurInventory()) {
-				invflag = false;
-				spselflag = false;
-				sbookflag = !sbookflag;
+			} else {
+				BlurInventory();
 			}
 			break;
 		case GameActionType::SEND_KEY:
@@ -485,7 +463,7 @@ WINBOOL PeekMessageA(LPMSG lpMsg)
 				lpMsg->message = action.send_mouse_click.up ? DVL_WM_RBUTTONUP : DVL_WM_RBUTTONDOWN;
 				break;
 			}
-			lpMsg->lParam = position_for_mouse(MouseX, MouseY);
+			lpMsg->lParam = (MouseY << 16) | (MouseX & 0xFFFF);
 			break;
 		}
 		return true;
@@ -497,15 +475,6 @@ WINBOOL PeekMessageA(LPMSG lpMsg)
 	}
 
 	switch (e.type) {
-#ifndef USE_SDL1
-	case SDL_CONTROLLERDEVICEADDED:
-	case SDL_CONTROLLERDEVICEREMOVED:
-		break;
-	case SDL_JOYDEVICEADDED:
-	case SDL_JOYDEVICEREMOVED:
-		InitController();
-		break;
-#endif
 	case SDL_QUIT:
 		lpMsg->message = DVL_WM_QUIT;
 		break;
@@ -521,31 +490,35 @@ WINBOOL PeekMessageA(LPMSG lpMsg)
 	} break;
 	case SDL_MOUSEMOTION:
 		lpMsg->message = DVL_WM_MOUSEMOVE;
-		lpMsg->lParam = position_for_mouse(e.motion.x, e.motion.y);
+		lpMsg->lParam = (e.motion.y << 16) | (e.motion.x & 0xFFFF);
 		lpMsg->wParam = keystate_for_mouse(0);
 		break;
 	case SDL_MOUSEBUTTONDOWN: {
 		int button = e.button.button;
 		if (button == SDL_BUTTON_LEFT) {
 			lpMsg->message = DVL_WM_LBUTTONDOWN;
-			lpMsg->lParam = position_for_mouse(e.button.x, e.button.y);
+			lpMsg->lParam = (e.button.y << 16) | (e.button.x & 0xFFFF);
 			lpMsg->wParam = keystate_for_mouse(DVL_MK_LBUTTON);
 		} else if (button == SDL_BUTTON_RIGHT) {
 			lpMsg->message = DVL_WM_RBUTTONDOWN;
-			lpMsg->lParam = position_for_mouse(e.button.x, e.button.y);
+			lpMsg->lParam = (e.button.y << 16) | (e.button.x & 0xFFFF);
 			lpMsg->wParam = keystate_for_mouse(DVL_MK_RBUTTON);
+		} else {
+			return false_avail("SDL_MOUSEBUTTONDOWN", button);
 		}
 	} break;
 	case SDL_MOUSEBUTTONUP: {
 		int button = e.button.button;
 		if (button == SDL_BUTTON_LEFT) {
 			lpMsg->message = DVL_WM_LBUTTONUP;
-			lpMsg->lParam = position_for_mouse(e.button.x, e.button.y);
+			lpMsg->lParam = (e.button.y << 16) | (e.button.x & 0xFFFF);
 			lpMsg->wParam = keystate_for_mouse(0);
 		} else if (button == SDL_BUTTON_RIGHT) {
 			lpMsg->message = DVL_WM_RBUTTONUP;
-			lpMsg->lParam = position_for_mouse(e.button.x, e.button.y);
+			lpMsg->lParam = (e.button.y << 16) | (e.button.x & 0xFFFF);
 			lpMsg->wParam = keystate_for_mouse(0);
+		} else {
+			return false_avail("SDL_MOUSEBUTTONUP", button);
 		}
 	} break;
 #ifndef USE_SDL1
@@ -614,6 +587,7 @@ WINBOOL PeekMessageA(LPMSG lpMsg)
 
 WINBOOL TranslateMessage(const MSG *lpMsg)
 {
+	assert(lpMsg->hwnd == 0);
 	if (lpMsg->message == DVL_WM_KEYDOWN) {
 		int key = lpMsg->wParam;
 		unsigned mod = (DWORD)lpMsg->lParam >> 16;
@@ -681,7 +655,7 @@ WINBOOL TranslateMessage(const MSG *lpMsg)
 #endif
 
 			// XXX: This does not add extended info to lParam
-			PostMessageA(DVL_WM_CHAR, key, 0);
+			PostMessageA(lpMsg->hwnd, DVL_WM_CHAR, key, 0);
 		}
 	}
 
@@ -716,15 +690,19 @@ SHORT GetAsyncKeyState(int vKey)
 LRESULT DispatchMessageA(const MSG *lpMsg)
 {
 	DUMMY_ONCE();
+	assert(lpMsg->hwnd == 0);
 	assert(CurrentProc);
 	// assert(CurrentProc == GM_Game);
 
-	return CurrentProc(NULL, lpMsg->message, lpMsg->wParam, lpMsg->lParam);
+	return CurrentProc(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam);
 }
 
-WINBOOL PostMessageA(UINT Msg, WPARAM wParam, LPARAM lParam)
+WINBOOL PostMessageA(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
+	assert(hWnd == 0);
+
 	MSG msg;
+	msg.hwnd = hWnd;
 	msg.message = Msg;
 	msg.wParam = wParam;
 	msg.lParam = lParam;
