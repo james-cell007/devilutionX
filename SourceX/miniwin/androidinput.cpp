@@ -101,7 +101,7 @@ bool ShiftButtonPressed = 0;
 bool change_controlPressed = 0;
 
 
- 
+
  
  //x , y , w, h 
 SDL_Rect PotGameUIMenu ={195,350,245,50};
@@ -115,22 +115,22 @@ SDL_Rect Jrect         ={1,180,170,170}; // Joystick circle
 SDL_Rect JoyStickBox = {0 , 200 , 170, 400};
 
 //x , y , w, h 
-SDL_Rect DemoN ={68,202,50,52}; 
-SDL_Rect DemoE ={120,257,67,52};   
-SDL_Rect DemoW ={0,257,67,52};		
-SDL_Rect DemoS ={68,312,57,52};
+SDL_Rect DemoN ={68,190,50,52}; 
+SDL_Rect DemoE ={120,242,67,52};   
+SDL_Rect DemoW ={0,242,67,52};		
+SDL_Rect DemoS ={68,294,50,52};
 
 //x , y , w, h 
-SDL_Rect DemoNW={0,204,67,52};
-SDL_Rect DemoNE={120,204,67,52};
-SDL_Rect DemoSW={0,312,67,52};
-SDL_Rect DemoSE={128,312,67,52};
+SDL_Rect DemoNW={0,190,67,52};
+SDL_Rect DemoNE={120,190,67,52};
+SDL_Rect DemoSW={0,294,67,52};
+SDL_Rect DemoSE={120,294,67,52};
 
 
 SDL_Rect DemonHealth={100,350,85,130};
 SDL_Rect AngelMana  ={460,350,85,130};
 
-SDL_Rect Change_controlsRect ={0,0,40,40};
+SDL_Rect Change_controlsRect ={600,0,40,40};
 
 SDL_Rect JoystickCircleRect  ={0,0,0,0};
 
@@ -147,7 +147,7 @@ bool JoyStickCTRL = false;
 
 
 // Show Squares for finger points
-bool DemoMode = true;
+//bool DemoMode = true;
 bool DemoModeEnabled=false;
 ////////////////////////
            
@@ -158,19 +158,19 @@ bool DemoModeEnabled=false;
 
 	//https://image.flaticon.com/icons/png/512/54/54528.png
 	//Loading Attack buttons
-	 AJoyStickS = IMG_Load("/sdcard/devilutionx/input_attack.png");
+	 AJoyStickS = IMG_Load("input_attack.png");
      AJoyStickT = SDL_CreateTextureFromSurface(renderer, AJoyStickS);
 	 SDL_SetTextureBlendMode(AJoyStickT, SDL_BLENDMODE_BLEND);
 	 SDL_SetTextureAlphaMod(AJoyStickT, 150);
 
 	 //Load CastButtons.
-	 CJoyStickS = IMG_Load("/sdcard/devilutionx/input_cast.png");
+	 CJoyStickS = IMG_Load("input_cast.png");
      CJoyStickT = SDL_CreateTextureFromSurface(renderer, CJoyStickS);
 	 SDL_SetTextureBlendMode(CJoyStickT, SDL_BLENDMODE_BLEND);
 	 SDL_SetTextureAlphaMod(CJoyStickT, 150);
 	 
 	 //https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Crossed_circle.svg/1200px-Crossed_circle.svg.png
-	 ShiftStickS = IMG_Load("/sdcard/devilutionx/shift.png");
+	 ShiftStickS = IMG_Load("shift.png");
      ShiftStickT = SDL_CreateTextureFromSurface(renderer, ShiftStickS);
 	 SDL_SetTextureBlendMode(ShiftStickT, SDL_BLENDMODE_BLEND);
 	 SDL_SetTextureAlphaMod(ShiftStickT, 150);
@@ -178,26 +178,26 @@ bool DemoModeEnabled=false;
 
 
 	 //Loading Walking Joystick.
-	 JoyStickS = IMG_Load("/sdcard/devilutionx/dpad.png");
+	 JoyStickS = IMG_Load("dpad.png");
      JoyStickT = SDL_CreateTextureFromSurface(renderer, JoyStickS);
 	 SDL_SetTextureBlendMode(JoyStickT, SDL_BLENDMODE_BLEND);
 	 SDL_SetTextureAlphaMod(JoyStickT, 75);
 
 
-	DemoSqS = IMG_Load("/sdcard/devilutionx/demosq.png");
+	DemoSqS = IMG_Load("demosq.png");
 	DemoSqT = SDL_CreateTextureFromSurface(renderer, DemoSqS);
 	SDL_SetTextureBlendMode(DemoSqT, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureAlphaMod(DemoSqT, 255);
 
 
 	
-	Change_controlsS = IMG_Load("/sdcard/devilutionx/change_controls.png");
+	Change_controlsS = IMG_Load("change_controls.png");
 	Change_controlsT = SDL_CreateTextureFromSurface(renderer, Change_controlsS);
 	SDL_SetTextureBlendMode(Change_controlsT, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureAlphaMod(Change_controlsT, 255);
 
 	//JoystickCircle
-	JoystickCircleS = IMG_Load("/sdcard/devilutionx/JoystickCircle.png");
+	JoystickCircleS = IMG_Load("JoystickCircle.png");
 	JoystickCircleT = SDL_CreateTextureFromSurface(renderer, JoystickCircleS);
 	SDL_SetTextureBlendMode(JoystickCircleT, SDL_BLENDMODE_BLEND);
 	SDL_SetTextureAlphaMod(JoystickCircleT, 255);

@@ -28,6 +28,7 @@ namespace dvl {
 	extern bool JoyStickCTRL;
 	extern int TouchX;
 	extern int TouchY;
+	extern bool DemoModeEnabled;
 	extern void PerformDPADMovement();
 
 	extern SDL_Surface * JoyStickS;

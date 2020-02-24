@@ -460,19 +460,15 @@ initalx  39, initaly 312
 		//If Change_controlsRect pressed
 		if (Xclick > Change_controlsRect.x && Xclick < Change_controlsRect.x+Change_controlsRect.w && Yclick > Change_controlsRect.y && Yclick < Change_controlsRect.y+Change_controlsRect.h) {
 			if (!change_controlPressed) {
-				//SDL_Log("change_controlPressed PRESSED\n");
-				change_controlPressed = 1;
-				JoyStickCTRL = 1;
+			//	SDL_Log("change_controlPressed PRESSED\n");
+				// change_controlPressed = 1;
+				// JoyStickCTRL = 1;
+				//DemoModeEnabled = 1;
+				//int DemoModeEnabled = 0 ? 1 : 0;
+				if (DemoModeEnabled == 0){DemoModeEnabled = 1; }else{DemoModeEnabled = 0;}
 				//Enable JoyStick
 
-			} else {
-				//SDL_Log("change_controlPressed UNPRESSED\n");
-				change_controlPressed = 0;
-				JoyStickCTRL = 0;
-				//enable dpad
-
-				
-			}
+			} 
 		}
 
 

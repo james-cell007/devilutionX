@@ -63,7 +63,7 @@ if ( FileExists("/sdcard/devilutionx") == false) {
 		exit(1);
 	}
 }
-
+/*
 // Copy images if they exist --
 if ( FileExists("/sdcard/devilutionx/dpad.png") == false) {
 	const int dir_errx = system("cp  /sdcard/dpad.png /sdcard/devilutionx/");
@@ -102,6 +102,7 @@ if ( FileExists("/sdcard/devilutionx/input_cast.png") == false) {
 		exit(1);
 	}
 }
+*/
 
 if ( FileExists("/sdcard/devilutionx/diabdat.mpq") == false) {
 	const int dir_errbz = system("cp  /sdcard/diabdat.mpq /sdcard/devilutionx/");
@@ -111,6 +112,7 @@ if ( FileExists("/sdcard/devilutionx/diabdat.mpq") == false) {
 	}
 }
 
+
 //org.diasurgical.devilutionx
 if ( FileExists("/sdcard/Android/data/org.diasurgical.devilutionx") == false) {
 	const int dir_errn = system("mkdir -p /sdcard/Android/data/org.diasurgical.devilutionx");
@@ -119,6 +121,7 @@ if ( FileExists("/sdcard/Android/data/org.diasurgical.devilutionx") == false) {
 		exit(1);
 	}
 }
+/*
 //Change_controlsRect 
 ///sdcard/devilutionx/change_controls.png
 if ( FileExists("/sdcard/devilutionx/change_controls.png") == false) {
@@ -130,6 +133,7 @@ if ( FileExists("/sdcard/devilutionx/change_controls.png") == false) {
 }
 
 
+
 if ( FileExists("/sdcard/devilutionx/JoystickCircle.png") == false) {
 	const int dir_errbzxc = system("cp  /sdcard/JoystickCircle.png /sdcard/devilutionx/");
 	if (-1 == dir_errbzxc) {
@@ -138,7 +142,7 @@ if ( FileExists("/sdcard/devilutionx/JoystickCircle.png") == false) {
 	}
 }
 
-
+*/
 
 	return dvl::WinMain(NULL, NULL, (char *)"", 0);
 }
